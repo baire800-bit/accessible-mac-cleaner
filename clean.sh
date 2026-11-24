@@ -22,7 +22,7 @@ totrash(){ # move to the Bin without overwriting anything already there
   [ -e "$dest" ] && dest="$HOME/.Trash/$base $(date +%Y-%m-%d\ %H.%M.%S)"
   mv "$src" "$dest"
 }
-olddownloads(){ find "$HOME/Downloads" -maxdepth 1 -mindepth 1 -mtime +90 2>/dev/null; }
+olddownloads(){ ls "$HOME/Downloads" >/dev/null 2>&1 || return 0; find "$HOME/Downloads" -maxdepth 1 -mindepth 1 -mtime +90 2>/dev/null; }
 bundleid(){ defaults read "$1/Contents/Info" CFBundleIdentifier 2>/dev/null; }
 leftovers(){
   local app="$1" id nm L="$HOME/Library"; id=$(bundleid "$app"); nm=$(basename "$app" .app)
@@ -42,7 +42,8 @@ measure)
   echo "dev|$dev|Developer download caches (Homebrew, npm, pnpm, pip)"
   echo "bin|$(kb "$HOME/.Trash")|Items in your Bin"
   echo "downloads|$(kb $(olddownloads))|$(olddownloads | wc -l | tr -d ' ') items in Downloads untouched for 90 days (they go to the Bin, not deleted)"
-  echo "snapshots|$(tmutil listlocalsnapshots / 2>/dev/null | grep -c TimeMachine)|Time Machine snapshots stored on this Mac"
+  # diskutil only looks at this Mac's own disk; tmutil can go poking at network drives and set off a macOS alert
+  echo "snapshots|$(diskutil apfs listSnapshots /System/Volumes/Data 2>/dev/null | grep -c 'com.apple.TimeMachine')|Time Machine snapshots stored on this Mac"
   ;;
 clean)
   case "${2:-}" in
@@ -56,9 +57,9 @@ clean)
     downloads) olddownloads | while IFS= read -r f; do totrash "$f"; done ;;
     snapshots) tmutil thinlocalsnapshots / 999999999999 4 >/dev/null 2>&1 ;;
   esac; true ;;
-free) diskutil info /System/Volumes/Data | awk -F'[:(]' '/Container Free Space/{gsub(/ /,"",$2); print $2}' ;;
+free) diskutil info /System/Volumes/Data | awk -F'[:(]' '/Container Free Space/{gsub(/ /,"",$2); sub(/GB$/," GB",$2); sub(/MB$/," MB",$2); print $2}' ;;
 backupdrive) # prints "ok" if a Time Machine drive is reachable now, else "missing"
-  tmutil latestbackup 2>/dev/null | grep -q "^/" && echo ok || echo missing ;;
+  tmutil destinationinfo 2>/dev/null | grep -qi "mount point" && echo ok || echo missing ;;
 bigfiles)
   # bigfiles start | <phase> | finish. Read only: lists files over 1 GB, never deletes.
   out="$HOME/Documents/Big files on this Mac.txt"
@@ -94,9 +95,13 @@ bigfiles)
     desktop) L=$(scan "$H/Desktop") ;;
     documents) L=$(scan "$H/Documents") ;;
     downloads) L=$(scan "$H/Downloads") ;;
-    media) L=$(scan "$H/Pictures" "$H/Movies" "$H/Music") ;;
-    rest) L=$(find "$H" -xdev -type f -size +1G -not -path "$H/Desktop/*" -not -path "$H/Documents/*" -not -path "$H/Downloads/*" \
-            -not -path "$H/Pictures/*" -not -path "$H/Movies/*" -not -path "$H/Music/*" -not -path "*/Library/Mobile Documents/*" -not -path "*/.Trash/*" 2>/dev/null) ;;
+    media) L=$(find "$H/Pictures" "$H/Movies" "$H/Music" -xdev \( -name "*.photoslibrary" -o -name "*.musiclibrary" \) -prune -o -type f -size +1G -print 2>/dev/null) ;;
+    rest) # prune (never enter) folders already searched, the Bin, iCloud, and other apps' private data,
+          # so macOS doesn't raise extra "access data from other apps" alerts
+          L=$(find "$H" -xdev \( -path "$H/Desktop" -o -path "$H/Documents" -o -path "$H/Downloads" -o -path "$H/Pictures" \
+            -o -path "$H/Movies" -o -path "$H/Music" -o -path "$H/.Trash" -o -path "$H/Library/Mobile Documents" \
+            -o -path "$H/Library/Containers" -o -path "$H/Library/Group Containers" -o -path "$H/Library/Daemon Containers" \) -prune \
+            -o -type f -size +1G -print 2>/dev/null) ;;
     finish) grep -q '^  Where:' "$out" || echo "No files over 1 GB found." >> "$out"; echo "$out" ;;
   esac
   if [ -n "${L:-}" ]; then
@@ -104,6 +109,8 @@ bigfiles)
       while IFS= read -r f; do describe "$f"; done >> "$out"
   fi ;;
 leftovers) leftovers "$2" ;;
+access) # touch a protected folder so macOS asks for permission now; waits for your answer
+  ls "$2" >/dev/null 2>&1 ;;
 uninstall)
   app="$2"; [ -d "$app" ] || exit 2
   list=$(leftovers "$app")
