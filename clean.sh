@@ -60,10 +60,49 @@ free) diskutil info /System/Volumes/Data | awk -F'[:(]' '/Container Free Space/{
 backupdrive) # prints "ok" if a Time Machine drive is reachable now, else "missing"
   tmutil latestbackup 2>/dev/null | grep -q "^/" && echo ok || echo missing ;;
 bigfiles)
+  # bigfiles start | <phase> | finish. Read only: lists files over 1 GB, never deletes.
   out="$HOME/Documents/Big files on this Mac.txt"
-  { echo "Files over 1 GB in your home folder, biggest first. $(date '+%d %B %Y')"; echo
-    find "$HOME" -xdev -type f -size +1G -not -path "*/Library/Mobile Documents/*" -not -path "*/.Trash/*" 2>/dev/null -exec du -h {} + | sort -rh; } > "$out"
-  echo "$out" ;;
+  H="$HOME"
+  describe(){ # one file -> a short plain description
+    local f="$1" sz kind used mod rel note
+    sz=$(du -h "$f" 2>/dev/null | cut -f1 | sed -E 's/([0-9.]+)G$/\1 GB/; s/([0-9.]+)M$/\1 MB/')
+    kind=$(mdls -raw -name kMDItemKind "$f" 2>/dev/null); [ -z "$kind" ] || [ "$kind" = "(null)" ] && kind=$(file -b "$f" | cut -d, -f1)
+    used=$(mdls -raw -name kMDItemLastUsedDate "$f" 2>/dev/null)
+    mod=$(stat -f '%Sm' -t '%e %B %Y' "$f" | tr -s ' ' | sed 's/^ //')
+    rel="${f#$H/}"; rel=$(dirname "$rel"); [ "$rel" = "." ] && rel="your home folder"
+    echo "$sz: $(basename "$f")"
+    echo "  Where: $rel"
+    if [ -n "$used" ] && [ "$used" != "(null)" ]; then
+      ud=$(date -j -f '%Y-%m-%d %H:%M:%S %z' "$used" '+%e %B %Y' 2>/dev/null | tr -s ' ' | sed 's/^ //')
+      echo "  What: $kind. Last opened $ud. Last changed $mod."
+      age=$(( ( $(date +%s) - $(date -j -f '%Y-%m-%d %H:%M:%S %z' "$used" +%s 2>/dev/null || date +%s) ) / 86400 ))
+      [ "$age" -gt 365 ] && note="Not opened in over a year."
+    else
+      echo "  What: $kind. Never opened, or not recorded. Last changed $mod."
+    fi
+    case "$f" in
+      */Library/*|*/.*/*) note="Inside app data, usually needed by an app. Remove it through the app, or uninstall the app, rather than deleting it by hand." ;;
+      "$H/Downloads/"*) note="${note:+$note }In Downloads: often safe to delete once you have kept what you need." ;;
+    esac
+    [ -n "${note:-}" ] && echo "  Note: $note"
+    echo
+  }
+  scan(){ find "$@" -xdev -type f -size +1G -not -path "*/Library/Mobile Documents/*" -not -path "*/.Trash/*" 2>/dev/null; }
+  case "${2:-}" in
+    start) { echo "Files over 1 GB on this Mac, $(date '+%e %B %Y')."
+             echo "Nothing has been deleted. This is a list to help you decide."; echo; } > "$out" ;;
+    desktop) L=$(scan "$H/Desktop") ;;
+    documents) L=$(scan "$H/Documents") ;;
+    downloads) L=$(scan "$H/Downloads") ;;
+    media) L=$(scan "$H/Pictures" "$H/Movies" "$H/Music") ;;
+    rest) L=$(find "$H" -xdev -type f -size +1G -not -path "$H/Desktop/*" -not -path "$H/Documents/*" -not -path "$H/Downloads/*" \
+            -not -path "$H/Pictures/*" -not -path "$H/Movies/*" -not -path "$H/Music/*" -not -path "*/Library/Mobile Documents/*" -not -path "*/.Trash/*" 2>/dev/null) ;;
+    finish) grep -q '^  Where:' "$out" || echo "No files over 1 GB found." >> "$out"; echo "$out" ;;
+  esac
+  if [ -n "${L:-}" ]; then
+    printf '%s\n' "$L" | while IFS= read -r f; do [ -n "$f" ] && printf '%s\t%s\n' "$(du -k "$f" | cut -f1)" "$f"; done | sort -rn | cut -f2- |
+      while IFS= read -r f; do describe "$f"; done >> "$out"
+  fi ;;
 leftovers) leftovers "$2" ;;
 uninstall)
   app="$2"; [ -d "$app" ] || exit 2

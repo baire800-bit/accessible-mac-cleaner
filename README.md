@@ -16,8 +16,13 @@ It does the space-saving jobs that paid cleaners do:
 - Uninstall an app: lists the app's leftover files by exact name, tells you the total size, and moves
   everything to the Bin so you can change your mind. If the app needs an administrator password to remove,
   macOS asks for it in its own dialog.
-- List my biggest files: writes every file over 1 GB in your home folder to a text file in Documents and
-  opens it in TextEdit.
+- List my biggest files (read only, nothing is deleted): looks in five places one at a time (Desktop,
+  Documents, Downloads, Pictures, Movies and Music, then the rest of your home folder) and tells you which
+  place it is in before it looks. macOS may ask whether the app can access some of those folders; Allow
+  lets it list big files there, Don't Allow skips that folder. For each file over 1 GB it gives the size,
+  where it is, what kind of file it is, when you last opened it and when it last changed, with a short note
+  where useful, such as "not opened in over a year" or "inside app data, remove it through the app". The
+  list opens in TextEdit and is saved in Documents.
 
 At the end of a clean-up it tells you the free space before and after.
 

@@ -16,7 +16,7 @@ on askUser(msg, yesLabel)
 end askUser
 on run
 	set startFree to sh("free")
-	set choice to choose from list {"Clean up space", "Uninstall an app", "List my biggest files"} with title appTitle with prompt "Free space now: " & startFree & ". What would you like to do?" default items {"Clean up space"}
+	set choice to choose from list {"Clean up space", "Uninstall an app", "List my biggest files (read only, nothing is deleted)"} with title appTitle with prompt "Free space now: " & startFree & ". What would you like to do?" default items {"Clean up space"}
 	if choice is false then return
 	set choice to item 1 of choice
 	if choice is "Clean up space" then
@@ -68,8 +68,14 @@ on run
 			end try
 		end if
 	else
-		display dialog "Searching. This can take a couple of minutes." buttons {"OK"} default button 1 giving up after 2 with title appTitle
-		set f to sh("bigfiles")
+		display dialog "This only makes a list of files over 1 GB, with where they are and when you last opened them. Nothing is deleted or moved." & linefeed & linefeed & "It looks in five places, one at a time. For some of them macOS may ask whether this app can access that folder. Allow lets it list big files there. Don't Allow just skips that folder." buttons {"Cancel", "Start"} default button "Start" with title appTitle
+		sh("bigfiles start")
+		repeat with ph in {{"desktop", "your Desktop"}, {"documents", "your Documents folder"}, {"downloads", "your Downloads folder"}, {"media", "your Pictures, Movies and Music folders"}, {"rest", "the rest of your home folder, including app data. This one takes longest"}}
+			display dialog "Now looking in " & item 2 of ph & ". If macOS asks for access, it is only to list big files. Nothing is deleted." buttons {"OK"} default button 1 giving up after 10 with title appTitle
+			sh("bigfiles " & item 1 of ph)
+		end repeat
+		set f to sh("bigfiles finish")
+		display dialog "Done. The list is open in TextEdit, and saved in Documents as Big files on this Mac." buttons {"OK"} default button 1 giving up after 10 with title appTitle
 		do shell script "open -a TextEdit " & quoted form of f
 	end if
 end run
