@@ -23,6 +23,8 @@ on sendCmd(c)
 	if statusFile is "" then
 		set statusFile to do shell script "mktemp -t amc-session"
 		do shell script "printf '%s\\n' " & quoted form of c & " >> " & quoted form of statusFile
+		-- Make sure macOS knows the window app by name, or Command-Tab can't switch to it
+		do shell script "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f " & quoted form of helperPath() & " >/dev/null 2>&1; true"
 		do shell script "open -n " & quoted form of helperPath() & " --args --session " & quoted form of statusFile & " " & quoted form of appTitle
 		-- Hand the front over to the window we just opened (macOS only allows it from the app you launched)
 		repeat with i from 1 to 10
