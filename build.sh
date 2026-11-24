@@ -6,11 +6,21 @@ cd "$(dirname "$0")"
 A="Accessible Mac Cleaner.app"; R="$A/Contents/Resources"
 rm -rf "$A"
 osacompile -o "$A" app.applescript
-swiftc -O -parse-as-library picker.swift -o "$R/list-apps"          # lists your apps with size, kind and last use
+# Build for every Mac from macOS 13 Ventura up, Intel and Apple silicon alike (not just the Mac building it)
+SDK=$(xcrun --show-sdk-path)
+uni(){ # uni <source> <output>
+  swiftc -O -parse-as-library -target arm64-apple-macos13.0 -sdk "$SDK" "$1" -o "$2.arm64"
+  swiftc -O -parse-as-library -target x86_64-apple-macos13.0 -sdk "$SDK" "$1" -o "$2.x86_64"
+  lipo -create "$2.arm64" "$2.x86_64" -output "$2"; rm -f "$2.arm64" "$2.x86_64"
+}
+# osacompile copies this Mac's own launcher, marked for this macOS only; it uses nothing newer than 13
+vtool -set-build-version macos 13.0 "$(xcrun --show-sdk-version)" -replace -output "$A/Contents/MacOS/applet.new" "$A/Contents/MacOS/applet" 2>/dev/null \
+  && mv "$A/Contents/MacOS/applet.new" "$A/Contents/MacOS/applet"
+uni picker.swift "$R/list-apps"          # lists your apps with size, kind and last use
 cp clean.sh "$R/clean.sh"; chmod +x "$R/clean.sh"
 # The one window you use: questions, lists, progress and Stop
 W="$R/Accessible Mac Cleaner Status.app"; mkdir -p "$W/Contents/MacOS" "$W/Contents/Resources"
-swiftc -O -parse-as-library status.swift -o "$W/Contents/MacOS/status"
+uni status.swift "$W/Contents/MacOS/status"
 cat > "$W/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

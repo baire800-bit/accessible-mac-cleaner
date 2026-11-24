@@ -11,8 +11,11 @@ Open Terminal (press Command-Space, type Terminal, press Return), paste this lin
 
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/baire800-bit/accessible-mac-cleaner/main/install.sh)"
 
+Please use this line rather than downloading the zip from the Releases page in a browser. The app isn't
+notarised by Apple, so a browser download makes macOS refuse to open it; the installer avoids that.
+
 The installer tells you each step, puts the app in your Applications folder and opens it. It takes a few
-seconds and needs nothing else installed. Works on macOS 13 Ventura or newer, on any Mac.
+seconds and needs nothing else installed. Works on macOS 13 Ventura or newer, on Intel and Apple silicon Macs.
 
 ## Using it
 
