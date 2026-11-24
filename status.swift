@@ -240,6 +240,16 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     }
     /// macOS only lets an app take the front if it asks while the app you launched is handing over, so ask
     /// firmly a few times in the first couple of seconds (only ever when the window first opens).
+    /// Whenever you switch to this app (Command-Tab, the Dock, anything), make the window take the keyboard,
+    /// so VoiceOver lands in it. Without this, a window opened while another app was in front never became
+    /// the keyboard window, and switching here left focus nowhere.
+    func applicationDidBecomeActive(_ n: Notification) {
+        window.makeKeyAndOrderFront(nil)
+        if window.firstResponder == nil || window.firstResponder === window { window.makeFirstResponder(field) }
+    }
+    func applicationShouldHandleReopen(_ s: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        window.makeKeyAndOrderFront(nil); return true
+    }
     func comeForward() {
         for delay in [0.0, 0.25, 0.6, 1.0, 1.6] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
