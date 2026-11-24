@@ -7,6 +7,11 @@ import AppKit
 
 final class ReadOnlyField: NSTextField {
     var onDown: (() -> Void)?
+    // Keep the text a screen reader reads in step with what's shown
+    override var stringValue: String { didSet { setAccessibilityValue(stringValue) } }
+    // Report as a read-only text area: VoiceOver, TurnOver and other screen readers read a focused text
+    // area's contents aloud, which isn't true of every reader for a plain label.
+
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { true }
     override func keyDown(with e: NSEvent) {
@@ -141,7 +146,17 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     let path = CommandLine.arguments[2]
     let appTitle = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "Working"
     var window: NSWindow!
-    let field = ReadOnlyField(wrappingLabelWithString: "")
+    let field: ReadOnlyField = {
+        // A read-only text field, not a plain label: VoiceOver, TurnOver and other screen readers all read
+        // a focused text field's contents, whereas some don't announce a label that has focus.
+        let f = ReadOnlyField(string: "")
+        f.isEditable = false; f.isSelectable = true; f.isBezeled = true; f.bezelStyle = .squareBezel
+        f.drawsBackground = false; f.usesSingleLineMode = false
+        f.cell?.wraps = true; f.cell?.isScrollable = false; f.lineBreakMode = .byWordWrapping
+        f.setAccessibilityRole(.textArea)   // read-only text area: every screen reader reads it on focus
+        f.setAccessibilityElement(true)
+        return f
+    }()
     let row = NSStackView()
     var last = ""
     var askID = ""
@@ -431,6 +446,10 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             setButtons([parts[4], "Cancel"], def: parts[4]); show(parts[2])
             if let i = inputBox { field.nextKeyView = i; i.nextKeyView = row.arrangedSubviews.first
                 field.onDown = { [weak self] in self?.window.makeFirstResponder(i) } }
+        case "ANNOUNCE" where parts.count >= 2:   // a finished chime and a spoken line, without taking focus
+            NSSound(named: "Glass")?.play()
+            NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+                                 userInfo: [.announcement: parts[1], .priority: NSAccessibilityPriorityLevel.high.rawValue])
         case "CHAT" where parts.count >= 3:   // CHAT readCopy savedPath: open a chat window in this same app
             #if VIDEO_READER
             Chat.openFor(readCopy: parts[1], saved: parts[2])
