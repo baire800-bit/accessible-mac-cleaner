@@ -8,6 +8,10 @@ property askCount : 0
 on helperPath()
 	return POSIX path of (path to me) & "Contents/Resources/Accessible Mac Cleaner Status.app"
 end helperPath
+on windowAppID()
+	if appTitle is "Video Reader" then return "io.github.video-reader.window"
+	return "io.github.accessible-mac-cleaner.status"
+end windowAppID
 on sendCmd(c)
 	-- One window (the helper) is open for the whole run. Commands are added to a file, one per line,
 	-- and the window works through them in order. Line breaks inside a message travel as \n.
@@ -20,6 +24,17 @@ on sendCmd(c)
 		set statusFile to do shell script "mktemp -t amc-session"
 		do shell script "printf '%s\\n' " & quoted form of c & " >> " & quoted form of statusFile
 		do shell script "open -n " & quoted form of helperPath() & " --args --session " & quoted form of statusFile & " " & quoted form of appTitle
+		-- Hand the front over to the window we just opened (macOS only allows it from the app you launched)
+		repeat with i from 1 to 10
+			delay 0.2
+			try
+				do shell script "pgrep -f -- " & quoted form of ("--session " & statusFile)
+				exit repeat
+			end try
+		end repeat
+		try
+			tell application id (my windowAppID()) to activate
+		end try
 	else
 		do shell script "printf '%s\\n' " & quoted form of c & " >> " & quoted form of statusFile
 	end if

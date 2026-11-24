@@ -238,6 +238,19 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             stack.insertArrangedSubview(col, at: 1); listHolder = col
         }
     }
+    /// macOS only lets an app take the front if it asks while the app you launched is handing over, so ask
+    /// firmly a few times in the first couple of seconds (only ever when the window first opens).
+    func comeForward() {
+        for delay in [0.0, 0.25, 0.6, 1.0, 1.6] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self, !NSApp.isActive else { return }
+                NSRunningApplication.current.activate(options: [.activateAllWindows])
+                NSApp.activate(ignoringOtherApps: true)
+                self.window.makeKeyAndOrderFront(nil)
+                self.window.makeFirstResponder(self.field)
+            }
+        }
+    }
     func setButtons(_ titles: [String], def: String) {
         for v in row.arrangedSubviews { row.removeArrangedSubview(v); v.removeFromSuperview() }
         var prev: NSView = radios.last ?? field
@@ -355,7 +368,7 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         field.stringValue = text
         // Come forward only when the window first opens. After that, never pull you back from another app;
         // the message waits here for you, and the calling app chimes or speaks when something needs you.
-        if !shownOnce { shownOnce = true; window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
+        if !shownOnce { shownOnce = true; window.makeKeyAndOrderFront(nil); comeForward() }
         guard NSApp.isActive else { return }
         // Put focus on the message so VoiceOver reads all of it, once. If focus was already there,
         // step off and back on so the new text is read from its first word (an announcement got cut short).
