@@ -35,5 +35,8 @@ plutil -replace CFBundleIdentifier -string "io.github.accessible-mac-cleaner" "$
 plutil -replace CFBundleShortVersionString -string "$(cat VERSION)" "$P"
 # The script itself stays out of the Dock and Command-Tab; the one window is what you switch to
 plutil -replace LSUIElement -bool true "$P"
-codesign --force --deep --sign - "$A" 2>/dev/null || true
+# Sign with the developer's fixed identity if this Mac has it, so macOS remembers your permission answers
+# across updates; anyone else building it gets an ordinary local signature.
+SIGN=$(security find-certificate -c "Barry Toner Apps" -Z 2>/dev/null | awk '/SHA-1/{print $3}')
+codesign --force --deep --sign "${SIGN:--}" "$A" 2>/dev/null || codesign --force --deep --sign - "$A"
 echo "Built: $(pwd)/$A"

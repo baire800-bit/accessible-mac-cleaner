@@ -5,7 +5,7 @@ set -u
 export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 C="$HOME/Library/Caches"
 # Never cleared: Apple's own caches, iCloud, maps, browser engines for testing tools.
-KEEP='^(com\.apple\..*|CloudKit|GeoServices|ms-playwright|Homebrew)$'
+KEEP='^(com\.apple\..*|CloudKit|GeoServices|ms-playwright|Homebrew|Google|Microsoft Edge|Firefox|BraveSoftware|Arc|company.thebrowser.Browser)$'
 
 kb(){ [ $# -eq 0 ] && { echo 0; return; }; du -sk "$@" 2>/dev/null | awk '{s+=$1} END{print s+0}'; }
 running(){ lsappinfo list 2>/dev/null | sed -n 's/.*bundleID="\([^"]*\)".*/\1/p' | tr 'A-Z' 'a-z' | sort -u; }
@@ -21,6 +21,20 @@ totrash(){ # move to the Bin without overwriting anything already there
   local src="$1" base dest; base=$(basename "$src"); dest="$HOME/.Trash/$base"
   [ -e "$dest" ] && dest="$HOME/.Trash/$base $(date +%Y-%m-%d\ %H.%M.%S)"
   mv "$src" "$dest"
+}
+# Web browser caches: name|cache folder|app bundle id (cleared only while that browser is closed)
+BROWSERS="Chrome|$C/Google/Chrome|com.google.Chrome
+Edge|$C/Microsoft Edge|com.microsoft.edgemac
+Firefox|$C/Firefox|org.mozilla.firefox
+Brave|$C/BraveSoftware|com.brave.Browser
+Arc|$C/Arc|company.thebrowser.Browser"
+browsercaches(){ # prints: name|kb|open-or-closed
+  local run; run=$(running)
+  printf '%s\n' "$BROWSERS" | while IFS='|' read -r n d id; do
+    [ -d "$d" ] || continue
+    st=closed; printf '%s\n' "$run" | grep -qxF "$(printf '%s' "$id" | tr 'A-Z' 'a-z')" && st=open
+    echo "$n|$(kb "$d")|$st"
+  done
 }
 olddownloads(){ ls "$HOME/Downloads" >/dev/null 2>&1 || return 0; find "$HOME/Downloads" -maxdepth 1 -mindepth 1 -mtime +90 2>/dev/null; }
 bundleid(){ defaults read "$1/Contents/Info" CFBundleIdentifier 2>/dev/null; }
@@ -41,6 +55,10 @@ measure)
   dev=0; command -v brew >/dev/null && dev=$(kb "$(brew --cache)"); dev=$((dev + $(kb "$HOME/.npm/_cacache")))
   echo "dev|$dev|Developer download caches (Homebrew, npm, pnpm, pip)"
   echo "bin|$(kb "$HOME/.Trash")|Items in your Bin"
+  bc=$(browsercaches); bk=$(printf '%s\n' "$bc" | awk -F'|' '$3=="closed"{s+=$2} END{print s+0}')
+  openb=$(printf '%s\n' "$bc" | awk -F'|' '$3=="open" && $2>1024 {print $1}' | paste -sd, - | sed 's/,/, /g')
+  closedb=$(printf '%s\n' "$bc" | awk -F'|' '$3=="closed" && $2>1024 {print $1}' | paste -sd, - | sed 's/,/, /g')
+  echo "browsers|$bk|$closedb|$openb"
   echo "downloads|$(kb $(olddownloads))|$(olddownloads | wc -l | tr -d ' ') items in Downloads untouched for 90 days (they go to the Bin, not deleted)"
   # diskutil only looks at this Mac's own disk; tmutil can go poking at network drives and set off a macOS alert
   echo "snapshots|$(diskutil apfs listSnapshots /System/Volumes/Data 2>/dev/null | grep -c 'com.apple.TimeMachine')|Time Machine snapshots stored on this Mac"
@@ -53,6 +71,11 @@ clean)
          command -v npm >/dev/null && npm cache clean --force >/dev/null 2>&1
          command -v pnpm >/dev/null && pnpm store prune >/dev/null 2>&1
          command -v pip3 >/dev/null && pip3 cache purge >/dev/null 2>&1 ;;
+    browsers) browsercaches | while IFS='|' read -r n k st; do
+        [ "$st" = closed ] || continue
+        d=$(printf '%s\n' "$BROWSERS" | awk -F'|' -v n="$n" '$1==n{print $2}')
+        [ -n "$d" ] && find "$d" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null
+      done ;;
     bin) find "$HOME/.Trash" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null ;;
     downloads) olddownloads | while IFS= read -r f; do totrash "$f"; done ;;
     snapshots) tmutil thinlocalsnapshots / 999999999999 4 >/dev/null 2>&1 ;;

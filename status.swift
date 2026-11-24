@@ -128,6 +128,7 @@ final class AskApp: NSObject, NSApplicationDelegate {
 final class MenuRadio: NSButton {
     var onMove: ((MenuRadio, Int) -> Void)?
     var onEnter: (() -> Void)?
+    var onType: ((String) -> Void)?
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { true }
     override func keyDown(with e: NSEvent) {
@@ -135,7 +136,11 @@ final class MenuRadio: NSButton {
         case 125, 124: onMove?(self, 1)
         case 126, 123: onMove?(self, -1)
         case 36, 76: onEnter?()
-        default: super.keyDown(with: e)
+        default:
+            // Letters and numbers jump to the item that starts with what you've typed (m, u, s for Muse)
+            if let ch = e.charactersIgnoringModifiers, ch.count == 1, e.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+               let c = ch.unicodeScalars.first, CharacterSet.alphanumerics.contains(c), let f = onType { f(ch) }
+            else { super.keyDown(with: e) }
         }
     }
 }
@@ -146,17 +151,7 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     let path = CommandLine.arguments[2]
     let appTitle = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "Working"
     var window: NSWindow!
-    let field: ReadOnlyField = {
-        // A read-only text field, not a plain label: VoiceOver, TurnOver and other screen readers all read
-        // a focused text field's contents, whereas some don't announce a label that has focus.
-        let f = ReadOnlyField(string: "")
-        f.isEditable = false; f.isSelectable = true; f.isBezeled = true; f.bezelStyle = .squareBezel
-        f.drawsBackground = false; f.usesSingleLineMode = false
-        f.cell?.wraps = true; f.cell?.isScrollable = false; f.lineBreakMode = .byWordWrapping
-        f.setAccessibilityRole(.textArea)   // read-only text area: every screen reader reads it on focus
-        f.setAccessibilityElement(true)
-        return f
-    }()
+    let field = ReadOnlyField(wrappingLabelWithString: "")
     let row = NSStackView()
     var last = ""
     var askID = ""
@@ -210,6 +205,16 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     var listHolder: NSView?
     var inputBox: NSTextField?
     var shownOnce = false
+    var typed = ""
+    var typedAt = Date.distantPast
+    func typeAhead(_ ch: String) {
+        if Date().timeIntervalSince(typedAt) > 1.2 { typed = "" }
+        typed += ch.lowercased(); typedAt = Date()
+        if let hit = radios.first(where: { $0.title.lowercased().hasPrefix(typed) }) ?? radios.first(where: { $0.title.lowercased().hasPrefix(String(ch.lowercased())) }) {
+            window.makeFirstResponder(hit); hit.scrollToVisible(hit.bounds.insetBy(dx: 0, dy: -20))
+            if checkKeys.isEmpty { for x in radios { x.state = x === hit ? .on : .off }; menuChoice = hit.title }
+        } else { NSSound.beep() }
+    }
     func showInput(defaultText: String) {
         guard let stack = window.contentView as? NSStackView else { return }
         let t = NSTextField(string: defaultText); t.setAccessibilityLabel("Link")
@@ -233,6 +238,7 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
                 self.window.makeFirstResponder(self.radios[j])
                 self.radios[j].scrollToVisible(self.radios[j].bounds.insetBy(dx: 0, dy: -20)) }
             b.onEnter = { [weak self] in if let ok = self?.row.arrangedSubviews.first as? NSButton { ok.performClick(nil) } }
+            b.onType = { [weak self] ch in self?.typeAhead(ch) }
             col.addArrangedSubview(b); radios.append(b); checkKeys.append(f[1] == "" ? f[0] : f[0])
         }
         // A long list (like your apps) scrolls inside the window instead of making it huge
@@ -305,6 +311,7 @@ final class SessionApp: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
             r.state = i == 0 ? .on : .off
             r.onMove = { [weak self] me, step in self?.moveRadio(from: me, by: step) }
             r.onEnter = { [weak self] in self?.chooseMenu() }
+            r.onType = { [weak self] ch in self?.typeAhead(ch) }
             stack.insertArrangedSubview(r, at: 1 + i)
             radios.append(r)
         }

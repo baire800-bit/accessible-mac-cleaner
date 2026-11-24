@@ -55,8 +55,22 @@ on indexOf(k)
 	if k is "documents" then return 2
 	return 3
 end indexOf
+on doneLine(chosen, keyList, sizeList, endFree)
+	set clearedK to 0
+	set snaps to false
+	repeat with k in chosen
+		if (k as string) is "snapshots" then set snaps to true
+		repeat with i from 1 to count of keyList
+			if item i of keyList is (k as string) then set clearedK to clearedK + (item i of sizeList)
+		end repeat
+	end repeat
+	set t to "All done. I cleared about " & gb(clearedK)
+	if snaps then set t to t & " and removed the Time Machine snapshots"
+	return t & ". You now have " & endFree & " free."
+end doneLine
 on nameFor(k)
 	if k is "caches" then return "app caches"
+	if k is "browsers" then return "web browser caches"
 	if k is "logs" then return "old log files"
 	if k is "dev" then return "developer caches"
 	if k is "bin" then return "emptying the Bin"
@@ -173,7 +187,10 @@ on mainRun()
 				status("Having a look at what can be cleared. This only takes a few seconds.")
 				set lns to paragraphs of sh("measure")
 				set cleanItems to {}
-				set labels to {"caches", "logs", "dev", "bin", "downloads", "snapshots"}
+				set labels to {"caches", "browsers", "logs", "dev", "bin", "downloads", "snapshots"}
+		set openBrowsers to ""
+		set keyList to {}
+		set sizeList to {}
 				set foundK to 0
 				repeat with itemKey in labels
 					set k to itemKey as string
@@ -190,6 +207,7 @@ on mainRun()
 							else if n ≥ 1024 then
 								set foundK to foundK + n
 								if k is "caches" then set end of cleanItems to k & "|App caches, " & gb(n) & ". Temporary files that apps rebuild when needed.|1"
+						if k is "browsers" then set end of cleanItems to k & "|Web browser caches for " & (item 3 of p) & ", " & gb(n) & ". Saved copies of web pages; sites may load a little slower the first time afterwards. You stay signed in.|1"
 								if k is "logs" then set end of cleanItems to k & "|Old log files, " & gb(n) & ".|1"
 								if k is "dev" then set end of cleanItems to k & "|Developer download caches, " & gb(n) & ". Left over from Homebrew, npm and pip.|1"
 								if k is "bin" then set end of cleanItems to k & "|Empty the Bin, " & gb(n) & ". This can't be undone.|0"
@@ -203,7 +221,9 @@ on mainRun()
 				else
 					set c to "CHECK" & tab
 					set askCount to askCount + 1
-					set c to c & askCount & tab & "I found about " & gb(foundK) & " you can clear. The safe ones are already ticked, and the rest are up to you. Press Down Arrow to go to the list, use Up and Down Arrow to move through it, press Space to tick or untick an item, then press Return to clean." & tab & "Clean ticked items"
+					set browserNote to ""
+			if openBrowsers is not "" then set browserNote to " " & openBrowsers & " is open, so I've left its cache alone; quit it and run this again to clear that too."
+			set c to c & askCount & tab & "I found about " & gb(foundK) & " you can clear." & browserNote & " The safe ones are already ticked, and the rest are up to you. Press Down Arrow to go to the list, use Up and Down Arrow to move through it, press Space to tick or untick an item, then press Return to clean." & tab & "Clean ticked items"
 					repeat with oneItem in cleanItems
 						set c to c & tab & (oneItem as string)
 					end repeat
@@ -231,7 +251,7 @@ on mainRun()
 							sh("clean " & k)
 						end repeat
 						set endFree to sh("free")
-						set lastAns to askDlg("All done. You now have " & endFree & " free, up from " & startFree & ".", {"OK"}, "OK")
+						set lastAns to askDlg(my doneLine(chosen, keyList, sizeList, endFree), {"OK"}, "OK")
 					end if
 				end if
 			else if choice is "Uninstall apps" then
