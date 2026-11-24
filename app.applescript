@@ -1,4 +1,4 @@
--- Accessible Mac Cleaner: every step is a standard dialog or list, so VoiceOver reads it all.
+-- Accessible Mac Cleaner: every step happens in one accessible window (status.swift), so any screen reader reads it.
 property appTitle : "Accessible Mac Cleaner"
 on eng()
 	return POSIX path of (path to me) & "Contents/Resources/clean.sh"
@@ -200,12 +200,15 @@ on mainRun()
 						set AppleScript's text item delimiters to ""
 						if item 1 of p is k then
 							set n to item 2 of p as number
+							if k is "browsers" and (count of p) > 3 then set openBrowsers to item 4 of p
 							if k is "snapshots" and n > 0 then
 								set lab to (n as string) & " Time Machine snapshots stored on this Mac. They hold space used by files you've deleted."
 								if sh("backupdrive") is not "ok" then set lab to lab & " Your backup drive isn't connected, so these may be your only recent backups."
 								set end of cleanItems to k & "|" & lab & "|0"
 							else if n ≥ 1024 then
 								set foundK to foundK + n
+								set end of keyList to k
+								set end of sizeList to n
 								if k is "caches" then set end of cleanItems to k & "|App caches, " & gb(n) & ". Temporary files that apps rebuild when needed.|1"
 						if k is "browsers" then set end of cleanItems to k & "|Web browser caches for " & (item 3 of p) & ", " & gb(n) & ". Saved copies of web pages; sites may load a little slower the first time afterwards. You stay signed in.|1"
 								if k is "logs" then set end of cleanItems to k & "|Old log files, " & gb(n) & ".|1"
@@ -326,6 +329,12 @@ on mainRun()
 				end repeat
 				if needAdmin is not {} then
 					set lastAns to askDlg(((count of needAdmin) as string) & " of them need your administrator password to remove. macOS will ask for it once, next.", {"Skip those", "Continue"}, "Continue")
+					set skippedNames to {}
+					if lastAns is not "Continue" then
+						repeat with ii in needAdmin
+							set end of skippedNames to item (contents of ii) of names
+						end repeat
+					end if
 					if lastAns is "Continue" then
 						set cmd to ""
 						repeat with ii in needAdmin
@@ -340,7 +349,12 @@ on mainRun()
 						end repeat
 					end if
 				end if
-				if nApps is 1 then
+				if needAdmin is not {} and skippedNames is not {} then
+					set AppleScript's text item delimiters to ", "
+					set skippedText to skippedNames as string
+					set AppleScript's text item delimiters to ""
+					set lastAns to askDlg("Done, except " & skippedText & ", which I left alone because you chose to skip the ones needing your password. Anything I removed is in the Bin until you empty it.", {"OK"}, "OK")
+				else if nApps is 1 then
 					set lastAns to askDlg("Done. " & nameList & " is now in the Bin. When you're sure you don't need it, empty the Bin to free up the space.", {"OK"}, "OK")
 				else
 					set lastAns to askDlg("Done. " & nameList & " are now in the Bin. When you're sure you don't need them, empty the Bin to free up the space.", {"OK"}, "OK")

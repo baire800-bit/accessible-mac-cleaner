@@ -37,6 +37,8 @@ browsercaches(){ # prints: name|kb|open-or-closed
   done
 }
 olddownloads(){ ls "$HOME/Downloads" >/dev/null 2>&1 || return 0; find "$HOME/Downloads" -maxdepth 1 -mindepth 1 -mtime +90 2>/dev/null; }
+# Only logs untouched for 7 days: live logs that apps and your own tools are still writing are kept
+oldlogs(){ find "$HOME/Library/Logs" -type f -mtime +7 2>/dev/null; }
 bundleid(){ defaults read "$1/Contents/Info" CFBundleIdentifier 2>/dev/null; }
 leftovers(){
   local app="$1" id nm L="$HOME/Library"; id=$(bundleid "$app"); nm=$(basename "$app" .app)
@@ -51,7 +53,7 @@ case "${1:-}" in
 measure)
   IFS=$'\n'
   echo "caches|$(kb $(cachelist))|App caches, for apps that are not open (apps rebuild them as needed)"
-  echo "logs|$(kb "$HOME/Library/Logs")|Old log files"
+  echo "logs|$(kb $(oldlogs))|Log files older than a week"
   dev=0; command -v brew >/dev/null && dev=$(kb "$(brew --cache)"); dev=$((dev + $(kb "$HOME/.npm/_cacache")))
   echo "dev|$dev|Developer download caches (Homebrew, npm, pnpm, pip)"
   echo "bin|$(kb "$HOME/.Trash")|Items in your Bin"
@@ -66,7 +68,7 @@ measure)
 clean)
   case "${2:-}" in
     caches) IFS=$'\n'; for d in $(cachelist); do rm -rf "$d"; done ;;
-    logs) find "$HOME/Library/Logs" -type f -delete 2>/dev/null ;;
+    logs) oldlogs | while IFS= read -r f; do rm -f "$f"; done ;;
     dev) command -v brew >/dev/null && brew cleanup -s --prune=all >/dev/null 2>&1
          command -v npm >/dev/null && npm cache clean --force >/dev/null 2>&1
          command -v pnpm >/dev/null && pnpm store prune >/dev/null 2>&1
