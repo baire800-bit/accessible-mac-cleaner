@@ -7,12 +7,13 @@ It was designed with and tested by a VoiceOver user, screen by screen.
 
 ## Install
 
+Easiest: download Accessible-Mac-Cleaner.zip from the latest release on GitHub, open it, and move
+Accessible Mac Cleaner to your Applications folder. It's signed and notarised by Apple, so it opens like any other app.
+
+Or, if you're happy in Terminal, 
 Open Terminal (press Command-Space, type Terminal, press Return), paste this line, and press Return:
 
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/baire800-bit/accessible-mac-cleaner/main/install.sh)"
-
-Please use this line rather than downloading the zip from the Releases page in a browser. The app isn't
-notarised by Apple, so a browser download makes macOS refuse to open it; the installer avoids that.
 
 The installer tells you each step, puts the app in your Applications folder and opens it. It takes a few
 seconds and needs nothing else installed. Works on macOS 13 Ventura or newer, on Intel and Apple silicon Macs.

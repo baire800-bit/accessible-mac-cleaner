@@ -1,5 +1,11 @@
 # Changes
 
+## 1.2.1, 24 November 2026
+
+- Signed with a Developer ID and notarised by Apple, so a browser download opens normally on any Mac.
+- Runs on macOS 13 Ventura or newer, on Intel and Apple silicon.
+- The finished message gives the real amount cleared; only logs older than a week are cleared; open browsers are named.
+
 ## 1.2.0, 24 November 2026
 
 The first full release, rebuilt around how VoiceOver users actually work.

@@ -45,8 +45,14 @@ plutil -replace CFBundleIdentifier -string "io.github.accessible-mac-cleaner" "$
 plutil -replace CFBundleShortVersionString -string "$(cat VERSION)" "$P"
 # The script itself stays out of the Dock and Command-Tab; the one window is what you switch to
 plutil -replace LSUIElement -bool true "$P"
-# Sign with the developer's fixed identity if this Mac has it, so macOS remembers your permission answers
-# across updates; anyone else building it gets an ordinary local signature.
-SIGN=$(security find-certificate -c "Barry Toner Apps" -Z 2>/dev/null | awk '/SHA-1/{print $3}')
-codesign --force --deep --sign "${SIGN:--}" "$A" 2>/dev/null || codesign --force --deep --sign - "$A"
+# Sign: Developer ID (Apple-issued, notarisable) if this Mac has it, else the old fixed identity, else ad hoc.
+DEVID=$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')
+if [ -n "$DEVID" ]; then
+  # inside-out, hardened runtime and a secure timestamp, as notarisation requires
+  for f in "$R/list-apps" "$W"; do codesign --force --options runtime --timestamp --sign "$DEVID" "$f"; done
+  codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$DEVID" "$A"
+else
+  SIGN=$(security find-certificate -c "Barry Toner Apps" -Z 2>/dev/null | awk '/SHA-1/{print $3}')
+  codesign --force --deep --sign "${SIGN:--}" "$A" 2>/dev/null || codesign --force --deep --sign - "$A"
+fi
 echo "Built: $(pwd)/$A"
