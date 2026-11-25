@@ -1,5 +1,10 @@
 # Changes
 
+## 1.2.2, 25 November 2026
+
+- A proper installer: download Accessible-Mac-Cleaner.pkg and open it. The Installer app talks you through each step and puts the app in your Applications folder. Signed and notarised by Apple.
+- Big files list: no more files showing as 0 bytes. Cloud files that are online only (Dropbox, OneDrive, Google Drive) and sparse files such as virtual machine disks take little or no room on the Mac, so they are left out; only files really using over 1 GB are listed. Downloaded cloud files get a note to make them online only rather than delete them. Reported by Casey Reeves.
+
 ## 1.2.1, 24 November 2026
 
 - Signed with a Developer ID and notarised by Apple, so a browser download opens normally on any Mac.

@@ -107,6 +107,7 @@ bigfiles)
       echo "  What: $kind. Never opened, or not recorded. Last changed $mod."
     fi
     case "$f" in
+      "$H/Library/CloudStorage/"*) note="In cloud storage. To free the space and keep the file, make it online only in that app (in Finder, Remove Download) rather than deleting it." ;;
       */Library/*|*/.*/*) note="Inside app data, usually needed by an app. Remove it through the app, or uninstall the app, rather than deleting it by hand." ;;
       "$H/Downloads/"*) note="${note:+$note }In Downloads: often safe to delete once you have kept what you need." ;;
     esac
@@ -130,7 +131,11 @@ bigfiles)
     finish) grep -q '^  Where:' "$out" || echo "No files over 1 GB found." >> "$out"; echo "$out" ;;
   esac
   if [ -n "${L:-}" ]; then
-    printf '%s\n' "$L" | while IFS= read -r f; do [ -n "$f" ] && printf '%s\t%s\n' "$(du -k "$f" | cut -f1)" "$f"; done | sort -rn | cut -f2- |
+    # find -size matches a file's full length, but cloud "online only" files (Dropbox, OneDrive, Google Drive,
+    # iCloud) and sparse files such as virtual machine disks take little or no room on this Mac. Keep only
+    # files really using over 1 GB here, so none show as 0 bytes.
+    printf '%s\n' "$L" | while IFS= read -r f; do [ -n "$f" ] || continue; k=$(du -k "$f" 2>/dev/null | cut -f1)
+      [ "${k:-0}" -ge 1048576 ] && printf '%s\t%s\n' "$k" "$f"; done | sort -rn | cut -f2- |
       while IFS= read -r f; do describe "$f"; done >> "$out"
   fi ;;
 leftovers) leftovers "$2" ;;

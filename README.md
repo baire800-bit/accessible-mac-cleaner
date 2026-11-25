@@ -7,8 +7,10 @@ It was designed with and tested by a VoiceOver user, screen by screen.
 
 ## Install
 
-Easiest: [Download Accessible Mac Cleaner](https://github.com/baire800-bit/accessible-mac-cleaner/releases/latest/download/Accessible-Mac-Cleaner.zip)
-(a zip file). Open it from your Downloads folder, then move Accessible Mac Cleaner to your Applications folder. It's signed and notarised by Apple, so it opens like any other app.
+Easiest: [Download the Accessible Mac Cleaner installer](https://github.com/baire800-bit/accessible-mac-cleaner/releases/latest/download/Accessible-Mac-Cleaner.pkg)
+(a .pkg file). Open it from your Downloads folder and the Installer app talks you through each step, then puts Accessible Mac Cleaner in your Applications folder. It's signed and notarised by Apple.
+
+Prefer a zip? [Download the app as a zip](https://github.com/baire800-bit/accessible-mac-cleaner/releases/latest/download/Accessible-Mac-Cleaner.zip), open it, and move Accessible Mac Cleaner to your Applications folder.
 
 Or, if you're happy in Terminal, 
 Open Terminal (press Command-Space, type Terminal, press Return), paste this line, and press Return:
